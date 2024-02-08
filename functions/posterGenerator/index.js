@@ -15,14 +15,14 @@ import fontHeavy from "./assets/PPObjectSans-Heavy.otf";
 import fontHeavySlanted from "./assets/PPObjectSans-HeavySlanted.otf";
 
 export const handler = ({ inputs, mechanic, sketch }) => {
-  const { width, height, citat, sæson, hvem, titel } =
+  const { width, height, citat, hvem, afsnit, titel } =
     inputs;
-  const hvemText = hvem.toUpperCase();
+  const afsnitText = afsnit.toUpperCase();
   const titelText = titel.toUpperCase();
   const citatText = citat.toLowerCase();
-  const sæsonText = sæson.toUpperCase();
+  const hvemText = hvem.toUpperCase();
 
-  let hvemElement;
+  let afsnitElement;
   let citatElement;
   let titelElement;
 
@@ -49,7 +49,7 @@ export const handler = ({ inputs, mechanic, sketch }) => {
   };
 
   const drawGrid = () => {
-    sketch.strokeWeight(width / (6 * 500));
+    sketch.strokeWeight(0);
     for (let i = 0; i <= 32; i++) {
       sketch.line(0, separation * i, width, separation * i);
     }
@@ -58,48 +58,48 @@ export const handler = ({ inputs, mechanic, sketch }) => {
 
   const setStylingBase = () => {
     sketch.background("white");
-    sketch.stroke(defaultColor);
+    sketch.noStroke(); // Remove stroke
     sketch.fill(defaultColor);
     sketch.textFont(objSansRegular);
   };
 
-  const drawhvemElement = () => {
-    const element = {};
-    element.baseRowSize = randInt(3, 6);
-    element.baseSize = element.baseRowSize * separation;
+  const drawafsnitElement = () => {
+  const element = {};
+  element.baseRowSize = randInt(3, 6);
+  element.baseSize = element.baseRowSize * separation;
 
-    const words = hvemText.split(" ");
-    sketch.textSize(element.baseSize * 0.8);
-    sketch.textFont(objSansHeavySlanted);
-    const lengths = words.map(t => sketch.textWidth(t));
-    element.length = Math.max(width / 3, ...lengths) + width / 20;
+  const words = afsnitText.split(" ");
+  sketch.textSize(element.baseSize * 0.8);
+  sketch.textFont(objSansHeavySlanted);
+  const lengths = words.map(t => sketch.textWidth(t));
+  element.length = Math.max(width / 3, ...lengths) + width / 20;
 
-    element.startRow = choice(
-      getPossibleStartPositions(
-        availableRows,
-        element.baseRowSize * words.length + 1
-      )
+  element.startRow = choice(
+    getPossibleStartPositions(
+      availableRows,
+      element.baseRowSize * words.length + 1
+    )
+  );
+  element.endRow =
+    element.startRow + words.length * (element.baseRowSize - 1);
+  element.y = element.startRow * separation;
+  element.x1 = 0;
+  element.x2 = element.length + element.x1;
+
+  // Draw the word only once outside of the loop
+  sketch.push();
+  sketch.translate(element.x1, element.y);
+  for (let i = 0; i < words.length; i++) {
+    sketch.text(
+      words[i],
+      0,
+      (i + 1) * (element.baseSize - separation)
     );
-    element.endRow =
-      element.startRow + words.length * (element.baseRowSize - 1);
-    element.y = element.startRow * separation;
-    element.x1 = 0;
-    element.x2 = element.length + element.x1;
+  }
+  sketch.pop();
 
-    let x = element.x1;
-    while (x < width) {
-      for (let i = 0; i < words.length; i++) {
-        sketch.text(
-          words[i],
-          x,
-          element.y + (i + 1) * (element.baseSize - separation)
-        );
-      }
-      x += element.length;
-    }
-
-    return element;
-  };
+  return element;
+};
 
   const drawtitelElement = () => {
     const element = {};
@@ -123,105 +123,71 @@ export const handler = ({ inputs, mechanic, sketch }) => {
     return element;
   };
 
-  const drawcitatElement = () => {
+const drawcitatElement = () => {
     const element = {};
-    element.isSingleRow = flipCoin();
     element.baseRowSize = 1;
     element.baseSize = element.baseRowSize * separation;
 
     sketch.textSize(element.baseSize * 0.8);
     sketch.textFont(objSansRegular);
-    const minLength =
-      (element.isSingleRow
-        ? sketch.textWidth(citatText) +
-          width / 20 +
-          sketch.textWidth(sæsonText)
-        : Math.max(
-            sketch.textWidth(citatText),
-            sketch.textWidth(sæsonText)
-          )) +
-      width / 20;
+    
+    // Calculate the minimum length required for the text
+    const minLength = sketch.textWidth(citatText) + width / 20;
 
+    // Check if the text exceeds the available width
     if (minLength + titelElement.length >= width) {
-      const rowsWithoutDescription = [...availableRows];
-      removeRowsUsedByElement(rowsWithoutDescription, titelElement);
-      element.startRow = choice(
-        getPossibleStartPositions(
-          rowsWithoutDescription,
-          (element.isSingleRow ? 1 : 2) * element.baseRowSize + 1
-        )
-      );
-    } else {
-      element.startRow = choice(
-        getPossibleStartPositions(
-          availableRows,
-          (element.isSingleRow ? 1 : 2) * element.baseRowSize + 1
-        )
-      );
-    }
-    element.endRow =
-      element.startRow + (element.isSingleRow ? 1 : 2) * element.baseRowSize;
-    element.y = element.startRow * separation;
-    const offset = getIntersectionOffset(element, [titelElement]);
-    const leftWidth = width - offset;
-    element.midDistance = randInt(
-      Math.floor(leftWidth / 20),
-      Math.floor(leftWidth / 4)
-    );
-    element.length =
-      (element.isSingleRow
-        ? Math.max(
-            leftWidth / 2,
-            sketch.textWidth(citatText) +
-              element.midDistance +
-              sketch.textWidth(sæsonText)
-          )
-        : Math.max(
-            leftWidth / 4,
-            Math.max(
-              sketch.textWidth(citatText),
-              sketch.textWidth(sæsonText)
+        // If it exceeds, split the text into multiple lines
+        const lines = sketch.split(citatText, width - titelElement.length - width / 20);
+        const lineHeight = sketch.textAscent() + sketch.textDescent();
+        const totalHeight = lines.length * lineHeight;
+
+        // Calculate the number of rows needed for the citatElement
+        const requiredRows = Math.ceil(totalHeight / separation);
+        
+        // Find available rows that do not collide with titelElement
+        const availableRowsWithoutTitle = availableRows.filter(row => row < titelElement.startRow || row > titelElement.endRow + requiredRows);
+
+        element.startRow = choice(
+            getPossibleStartPositions(
+                availableRowsWithoutTitle,
+                requiredRows * element.baseRowSize + 1
             )
-          )) +
-      leftWidth / 20;
-    element.x1 =
-      offset +
-      (flipCoin() ? 0 : randInt(0, Math.floor(leftWidth - element.length)));
-    element.x2 = element.x1 + element.length;
+        );
 
-    const [first, second] = flipCoin()
-      ? [citatText, sæsonText]
-      : [sæsonText, citatText];
-
-    if (element.isSingleRow) {
-      sketch.text(first, element.x1, element.y + element.baseSize);
-      sketch.text(
-        second,
-        element.x1 + sketch.textWidth(first) + element.midDistance,
-        element.y + element.baseSize
-      );
+        // Draw each line of text
+        for (let i = 0; i < lines.length; i++) {
+            sketch.text(lines[i], 0, element.startRow * separation + (i + 1) * lineHeight);
+        }
+        
+        // Set element properties
+        element.endRow = element.startRow + requiredRows * element.baseRowSize;
+        element.y = element.startRow * separation;
+        element.length = width;
+        element.x1 = 0;
+        element.x2 = element.length;
     } else {
-      const alignDateRight = flipCoin();
-      if (alignDateRight) {
-        sketch.textAlign(sketch.RIGHT);
-      }
-      sketch.text(
-        first,
-        alignDateRight ? element.x2 - leftWidth / 20 : element.x1,
-        element.y + element.baseSize
-      );
-      sketch.text(
-        second,
-        alignDateRight ? element.x2 - leftWidth / 20 : element.x1,
-        element.y + 2 * element.baseSize
-      );
-      if (alignDateRight) {
-        sketch.textAlign(sketch.LEFT);
-      }
+        // If it fits within the available width, draw the text normally
+        element.startRow = choice(
+            getPossibleStartPositions(
+                availableRows,
+                (element.baseRowSize) + 1
+            )
+        );
+        element.endRow = element.startRow + element.baseRowSize;
+        element.y = element.startRow * separation;
+        element.length = minLength;
+        element.x1 = 0;
+        element.x2 = element.x1 + element.length;
+
+        sketch.text(citatText, element.x1, element.y + element.baseSize);
     }
 
     return element;
-  };
+};
+
+
+
+
 
   const drawRectangle = ({ rx, ry, rw, rh }) => {
     if (img) {
@@ -245,7 +211,7 @@ export const handler = ({ inputs, mechanic, sketch }) => {
 
   const drawRectangles = () => {
     const maxUsedSpace = Math.max(
-      hvemElement.x2,
+      afsnitElement.x2,
       titelElement.x2,
       citatElement.x2
     );
@@ -331,9 +297,9 @@ export const handler = ({ inputs, mechanic, sketch }) => {
 
     drawGrid();
 
-    hvemElement = drawhvemElement();
+    afsnitElement = drawafsnitElement();
 
-    removeRowsUsedByElement(availableRows, hvemElement);
+    removeRowsUsedByElement(availableRows, afsnitElement);
 
     titelElement = drawtitelElement();
 
@@ -363,13 +329,13 @@ export const inputs = {
     type: "text",
     default: "Jeg vil bare ikke spise noget der er blevet tøet op"
   },
+  afsnit: {
+    type: "text",
+    default: "S4:E1"
+  },
   hvem: {
     type: "text",
     default: "Casper"
-  },
-  sæson: {
-    type: "text",
-    default: "Sæson 4"
   },
   titel: {
     type: "text",
